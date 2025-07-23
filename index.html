@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StudySmart - Quiz App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+    }
+    .login-box, .dashboard, .quiz-section, .stats {
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 { text-align: center; color: #4CAF50; }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px;
+      margin: 5px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+    .hidden { display: none; }
+    .question { margin-top: 20px; }
+    .option { margin: 5px 0; }
+  </style>
+</head>
+<body>
+
+<div class="login-box" id="loginBox">
+  <h2>Login</h2>
+  <input type="text" id="codeInput" placeholder="Enter code (e.g., 0105)">
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="dashboard hidden" id="dashboard">
+  <h2 id="welcomeText"></h2>
+  <button onclick="startOBGYQuiz()">👶 Start OBGY Quiz</button>
+</div>
+
+<div class="quiz-section hidden" id="quizSection">
+  <h2>OBGY Quiz</h2>
+  <div id="questionContainer"></div>
+  <button onclick="submitQuiz()">Submit Quiz</button>
+</div>
+
+<div class="stats hidden" id="statsBox">
+  <h2>Quiz Results</h2>
+  <p id="scoreText">Score: --</p>
+  <p id="accuracyText">Accuracy: --%</p>
+  <button onclick="retryWrong()">Retry Wrong</button>
+  <button onclick="backToDashboard()">Back to Dashboard</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabase = supabase.createClient(
+  'https://iqwfqgywdtncbqhplvop.supabase.co',
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlxd2ZxZ3l3ZHRuY2JxaHBsdm9wIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTExMDg2NzEsImV4cCI6MjAyNjY4NDY3MX0.kx3H9WcYI03VY_sKNWJ4jZsC5OfF6vV0tuA2rbfyP5Y'
+);
+
+let student = "";
+let questions = [];
+let selectedAnswers = {};
+let wrongQuestions = [];
+
+function login() {
+  const code = document.getElementById("codeInput").value.trim();
+  if (code === "0105") student = "Ganesh";
+  else if (code === "1111") student = "Neha";
+  else return alert("Invalid code");
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("welcomeText").textContent = `Welcome, ${student}`;
+}
+
+function startOBGYQuiz() {
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("quizSection").classList.remove("hidden");
+  loadQuestions();
+}
+
+async function loadQuestions() {
+  let { data, error } = await supabase.from("obgy").select("*").limit(10);
+
+  if (error || !data || data.length === 0) {
+    alert("Failed to load from Supabase. Using sample questions.");
+    data = [
+      {
+        id: 1,
+        question: "What is the normal number of umbilical vessels?",
+        optiona: "One artery and one vein",
+        optionb: "Two arteries and one vein",
+        optionc: "One artery and two veins",
+        optiond: "Two arteries and two veins",
+        answer: "b"
+      },
+      {
+        id: 2,
+        question: "When does ovulation occur in a 28-day cycle?",
+        optiona: "Day 7",
+        optionb: "Day 10",
+        optionc: "Day 14",
+        optiond: "Day 21",
+        answer: "c"
+      }
+    ];
+  }
+
+  questions = data;
+  selectedAnswers = {};
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const container = document.getElementById("questionContainer");
+  container.innerHTML = "";
+  questions.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    div.innerHTML = `
+      <p><b>Q${i + 1}:</b> ${q.question}</p>
+      <div class="option"><input type="radio" name="q${q.id}" value="a" onchange="selectAns(${q.id}, 'a')"> ${q.optiona}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="b" onchange="selectAns(${q.id}, 'b')"> ${q.optionb}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="c" onchange="selectAns(${q.id}, 'c')"> ${q.optionc}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="d" onchange="selectAns(${q.id}, 'd')"> ${q.optiond}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function selectAns(id, ans) {
+  selectedAnswers[id] = ans;
+}
+
+function submitQuiz() {
+  let correct = 0;
+  wrongQuestions = [];
+  questions.forEach(q => {
+    if (selectedAnswers[q.id] === q.answer) correct++;
+    else wrongQuestions.push(q);
+  });
+  const total = questions.length;
+  const accuracy = Math.round((correct / total) * 100);
+  document.getElementById("quizSection").classList.add("hidden");
+  document.getElementById("statsBox").classList.remove("hidden");
+  document.getElementById("scoreText").textContent = `Score: ${correct} / ${total}`;
+  document.getElementById("accuracyText").textContent = `Accuracy: ${accuracy}%`;
+}
+
+function retryWrong() {
+  questions = wrongQuestions;
+  selectedAnswers = {};
+  document.getElementById("statsBox").classList.add("hidden");
+  document.getElementById("quizSection").classList.remove("hidden");
+  renderQuestions();
+}
+
+function backToDashboard() {
+  document.getElementById("statsBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+}
+</script>
+</body>
+</html>
