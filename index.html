@@ -1,21 +1,166 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Study Smart</title>
+  <meta charset="UTF-8">
+  <title>StudySmart - Quiz App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    .question { margin-bottom: 20px; }
-    .options label { display: block; margin: 5px 0; }
-    button { padding: 10px 15px; margin-top: 10px; }
+    body {
+      font-family: Arial;
+      background: #f2f2f2;
+      margin: 0;
+      padding: 0;
+    }
+    .login-box, .dashboard, .quiz-section, .stats {
+      max-width: 500px;
+      margin: 40px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    h2 { text-align: center; color: #4CAF50; }
+    button {
+      background: #4CAF50;
+      color: white;
+      border: none;
+      padding: 12px;
+      margin: 5px;
+      width: 100%;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+    .hidden { display: none; }
+    .question { margin-top: 20px; }
+    .option { margin: 5px 0; }
+    .subject-tile {
+      background: #e0f7fa;
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
-  <h1>StudySmart Quiz</h1>
-  <div id="quiz-container"></div>
-  <script src="main.js"></script>
+
+<div class="login-box" id="loginBox">
+  <h2>Login</h2>
+  <input type="text" id="codeInput" placeholder="Enter code (e.g., 0105)">
+  <button onclick="login()">Login</button>
+</div>
+
+<div class="dashboard hidden" id="dashboard">
+  <h2 id="welcomeText"></h2>
+  <div onclick="selectSubject('math')" class="subject-tile">📐 Math</div>
+  <div onclick="selectSubject('bio')" class="subject-tile">🧬 Biology</div>
+  <div onclick="selectSubject('obgy')" class="subject-tile">👶 OBGY</div>
+</div>
+
+<div class="quiz-section hidden" id="quizSection">
+  <h2 id="quizTitle"></h2>
+  <div id="questionContainer"></div>
+  <button onclick="submitQuiz()">Submit Quiz</button>
+</div>
+
+<div class="stats hidden" id="statsBox">
+  <h2>Quiz Results</h2>
+  <p id="scoreText">Score: --</p>
+  <p id="accuracyText">Accuracy: --%</p>
+  <button onclick="retryWrong()">Retry Wrong</button>
+  <button onclick="backToDashboard()">Back to Dashboard</button>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+<script>
+const supabase = supabase.createClient(
+  'https://YOUR_PROJECT.supabase.co',
+  'YOUR_PUBLIC_ANON_KEY'
+);
+
+let student = "";
+let subject = "";
+let questions = [];
+let selectedAnswers = {};
+let wrongQuestions = [];
+
+function login() {
+  const code = document.getElementById("codeInput").value.trim();
+  if (code === "0105") student = "Ganesh";
+  else if (code === "1111") student = "Neha";
+  else return alert("Invalid code");
+  document.getElementById("loginBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+  document.getElementById("welcomeText").textContent = `Welcome, ${student}`;
+}
+
+function selectSubject(subj) {
+  subject = subj;
+  document.getElementById("dashboard").classList.add("hidden");
+  document.getElementById("quizSection").classList.remove("hidden");
+  document.getElementById("quizTitle").textContent = `${subj.toUpperCase()} Quiz`;
+  loadQuestions();
+}
+
+async function loadQuestions() {
+  let { data, error } = await supabase.from(subject).select('*').limit(10);
+  if (error) return alert("Failed to load questions.");
+  questions = data;
+  selectedAnswers = {};
+  renderQuestions();
+}
+
+function renderQuestions() {
+  const container = document.getElementById("questionContainer");
+  container.innerHTML = "";
+  questions.forEach((q, i) => {
+    const div = document.createElement("div");
+    div.className = "question";
+    div.innerHTML = `
+      <p><b>Q${i + 1}:</b> ${q.question}</p>
+      <div class="option"><input type="radio" name="q${q.id}" value="a" onchange="selectAns(${q.id}, 'a')"> ${q.optiona}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="b" onchange="selectAns(${q.id}, 'b')"> ${q.optionb}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="c" onchange="selectAns(${q.id}, 'c')"> ${q.optionc}</div>
+      <div class="option"><input type="radio" name="q${q.id}" value="d" onchange="selectAns(${q.id}, 'd')"> ${q.optiond}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function selectAns(id, ans) {
+  selectedAnswers[id] = ans;
+}
+
+function submitQuiz() {
+  let correct = 0;
+  wrongQuestions = [];
+  questions.forEach(q => {
+    if (selectedAnswers[q.id] === q.answer) correct++;
+    else wrongQuestions.push(q);
+  });
+  const total = questions.length;
+  const accuracy = Math.round((correct / total) * 100);
+  document.getElementById("quizSection").classList.add("hidden");
+  document.getElementById("statsBox").classList.remove("hidden");
+  document.getElementById("scoreText").textContent = `Score: ${correct} / ${total}`;
+  document.getElementById("accuracyText").textContent = `Accuracy: ${accuracy}%`;
+}
+
+function retryWrong() {
+  questions = wrongQuestions;
+  selectedAnswers = {};
+  document.getElementById("statsBox").classList.add("hidden");
+  document.getElementById("quizSection").classList.remove("hidden");
+  document.getElementById("quizTitle").textContent = `Retry Quiz (${subject.toUpperCase()})`;
+  renderQuestions();
+}
+
+function backToDashboard() {
+  document.getElementById("statsBox").classList.add("hidden");
+  document.getElementById("dashboard").classList.remove("hidden");
+}
+</script>
 </body>
 </html>
-
-
